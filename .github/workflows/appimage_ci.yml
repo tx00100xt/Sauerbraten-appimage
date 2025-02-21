@@ -81,7 +81,7 @@ jobs:
             cd ${{github.workspace}}
             cp -r src/sauer_client AppDir/usr/bin
             cp -r src/sauer_server AppDir/usr/bin
-            cp -vfr /usl/lib/x86_64-linux-gnu/libjack* AppDir/usr/lib
+            cp -vfr /usr/lib/x86_64-linux-gnu/libjack* AppDir/usr/lib
 
       - name: Build AppImage
         run: |
