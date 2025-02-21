@@ -1,0 +1,102 @@
+diff '--color=auto' -aurN sauerbraten/src/engine/main.cpp src/engine/main.cpp
+--- a/src/engine/main.cpp	2020-12-04 22:54:19.000000000 +0300
++++ b/src/engine/main.cpp	2025-02-15 01:00:04.000000000 +0300
+@@ -1,6 +1,8 @@
+ // main.cpp: initialisation & main loop
+ 
+ #include "engine.h"
++#include <sys/stat.h>
++#include <errno.h>
+ 
+ #ifdef SDL_VIDEO_DRIVER_X11
+ #include "SDL_syswm.h"
+@@ -1178,9 +1180,58 @@
+ 
+     setlogfile(NULL);
+ 
+-    int dedicated = 0;
++    int dedicated = 0;;
+     char *load = NULL, *initscript = NULL;
+ 
++    // prepare app_dir
++	char *app_dir = NULL;
++	char *home_dir = NULL;
++    app_dir = getenv("APPDIR");
++    if(!app_dir) {
++        fatal("Unable to getenv $APPDIR");
++	}
++
++    // add data path to app_dir
++    app_dir = strncat(app_dir, "/usr/share/sauerbraten", 22);
++
++    // add app_dir to packagedirs
++	const char *add_appdir = addpackagedir(app_dir);
++    logoutf("Using appimage directory: %s", (const char *)add_appdir);
++
++    // first run
++    int first_run = 0;
++    home_dir = getenv("HOME");
++    if(!home_dir) {
++        fatal("Unable to getenv $HOME");
++	}
++
++    // add path to home_dir
++    home_dir = strncat(home_dir, "/.sauerbraten", 13);
++
++    // test first run
++    struct stat st_stat;
++    int err = stat(home_dir, &st_stat);
++    if(-1 == err) {
++        if(ENOENT == errno) {
++            /* does not exist */
++            first_run = 1;
++            logoutf("First run, set windowed mode");
++            scr_w = 1280;
++            scr_h = 720;
++            fullscreen = 0;
++        } else {
++            fatal("Error stat with code: %d", errno);
++        }
++    } else {
++        if(S_ISDIR(st_stat.st_mode)) {
++            /* it's a dir */
++            logoutf("Use config files in: %s", home_dir);
++        } else {
++            /* exists but is no dir */
++            fatal("Error stat %s", home_dir);
++        }
++    }
++
+     initing = INIT_RESET;
+     // set home dir first
+     for(int i = 1; i<argc; i++) if(argv[i][0]=='-' && argv[i][1] == 'q') { sethomedir(&argv[i][2]); break; }
+@@ -1207,13 +1258,13 @@
+             }
+             case 'g': break;
+             case 'd': dedicated = atoi(&argv[i][2]); if(dedicated<=0) dedicated = 2; break;
+-            case 'w': scr_w = clamp(atoi(&argv[i][2]), SCR_MINW, SCR_MAXW); if(!findarg(argc, argv, "-h")) scr_h = -1; break;
+-            case 'h': scr_h = clamp(atoi(&argv[i][2]), SCR_MINH, SCR_MAXH); if(!findarg(argc, argv, "-w")) scr_w = -1; break;
++            case 'w': if(!first_run) {scr_w = clamp(atoi(&argv[i][2]), SCR_MINW, SCR_MAXW); if(!findarg(argc, argv, "-h")) scr_h = -1;} break;
++            case 'h': if(!first_run) {scr_h = clamp(atoi(&argv[i][2]), SCR_MINH, SCR_MAXH); if(!findarg(argc, argv, "-w")) scr_w = -1;} break;
+             case 'z': depthbits = atoi(&argv[i][2]); break;
+             case 'b': /* compat, ignore */ break;
+             case 'a': fsaa = atoi(&argv[i][2]); break;
+             case 'v': /* compat, ignore */ break;
+-            case 't': fullscreen = atoi(&argv[i][2]); break;
++            case 't': if(!first_run) {fullscreen = atoi(&argv[i][2]);} break;
+             case 's': /* compat, ignore */ break;
+             case 'f': /* compat, ignore */ break; 
+             case 'l': 
+@@ -1248,8 +1299,10 @@
+     }
+     
+     logoutf("init: net");
+-    if(enet_initialize()<0) fatal("Unable to initialise network module");
+-    atexit(enet_deinitialize);
++    if(enet_initialize()<0) {
++        logoutf("Unable to initialise network module");
++        //atexit(enet_deinitialize);
++    }
+     enet_time_set(0);
+ 
+     logoutf("init: game");
