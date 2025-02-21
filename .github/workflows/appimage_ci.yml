@@ -72,7 +72,7 @@ jobs:
 
       - name: Build sources
         run: |
-            cd ${{github.workspace}} ..
+            cd ${{github.workspace}}
             cd src
             make -j4
 
